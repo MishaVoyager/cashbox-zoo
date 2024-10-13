@@ -1,0 +1,134 @@
+x-redis: &redis
+  REDIS_PORT: 6379
+  REDIS_DATABASES: 11
+  REDIS_HOST: redis
+x-common: &common
+  SECRETS_ADDRESS: "/run/secrets"
+  USE_POLLING: "true"
+  SECRETS_IN_FILE: "true"
+  WRITE_LOGS_IN_FILE: "false"
+  POSTGRES_URL: "postgres"
+  ADMINS: "mnoskov@skbkontur.ru pyrov@skbkontur.ru pesterev.ov@skbkontur.ru"
+  TEST_DATA: "false"
+
+services:
+  postgres:
+    image: postgres:13.3
+    environment:
+      POSTGRES_DB_FILE: /run/secrets/pg_db_name
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_pass
+      POSTGRES_USER_FILE: /run/secrets/pg_user
+    volumes:
+      - zoo-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    secrets:
+      - pg_pass
+      - pg_user
+      - pg_db_name
+  redis:
+    image: redis
+    restart: always
+    volumes:
+      - ./redis_data:/data
+    ports:
+      - "6379:6379"
+    environment:
+      <<: [ *redis ]
+  server:
+    image: vecheren/cashbox_zoo
+    build: .
+    ports:
+      - 8080:8080
+    environment:
+      << : [*redis, *common]
+    secrets:
+      - zoo_admin_pass
+      - pg_pass
+      - pg_user
+      - pg_db_name
+      - token
+      - webhook_secret
+      - staff_client_id
+      - staff_client_secret
+      - smtp_password
+    depends_on:
+      - postgres
+      - redis
+  scheduler:
+    build:
+     context: .
+     dockerfile: Dockerfile_scheduler
+    restart: always
+    depends_on:
+     - redis
+     - server
+    environment:
+      << : [*redis, *common]
+    secrets:
+      - zoo_admin_pass
+      - pg_pass
+      - pg_user
+      - pg_db_name
+      - token
+      - webhook_secret
+      - staff_client_id
+      - staff_client_secret
+      - smtp_password
+volumes:
+  zoo-data:
+secrets:
+  webhook_secret:
+    file: src/secrets/webhook_secret.txt
+  pg_pass:
+    file: src/secrets/pg_pass.txt
+  pg_user:
+    file: src/secrets/pg_user.txt
+  pg_db_name: 
+    file: src/secrets/pg_db_name.txt
+  token:
+    file: src/secrets/token.txt
+  zoo_admin_pass:
+    file: src/secrets/zoo_admin_pass.txt
+  staff_client_id:
+    file: src/secrets/staff_client_id.txt
+  staff_client_secret: 
+    file: src/secrets/staff_client_secret.txt
+  smtp_password:
+    file: src/secrets/smtp_password.txt
+    
+  
+# The commented out section below is an example of how to define a PostgreSQL
+# database that your application can use. `depends_on` tells Docker Compose to
+# start the database before your application. The `db-data` volume persists the
+# database data between container restarts. The `db-password` secret is used
+# to set the database password. You must create `db/password.txt` and add
+# a password of your choosing to it before running `docker compose up`.
+#     depends_on:
+#       db:
+#         condition: service_healthy
+#   db:
+#     image: postgres
+#     restart: always
+#     user: postgres
+#     secrets:
+#       - db-password
+#     volumes:
+#       - db-data:/var/lib/postgresql/data
+#     environment:
+#       - POSTGRES_DB=example
+#       - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
+#     expose:
+#       - 5432
+#     healthcheck:
+#       test: [ "CMD", "pg_isready" ]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+# volumes:
+#   db-data:
+# secrets:
+#   db-password:
+#     file: db/password.txt
+
