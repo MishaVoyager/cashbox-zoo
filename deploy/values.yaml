@@ -1,0 +1,81 @@
+configs: &configs
+  USE_REDIS: ${USE_REDIS}
+  REDIS_PORT: ${REDIS_PORT}
+  REDIS_DATABASES: ${REDIS_DATABASES}
+  REDIS_HOST: ${REDIS_HOST}
+  SECRETS_ADDRESS: ${SECRETS_ADDRESS}
+  ADMINS: ${ADMINS}
+  CATEGORIES: ${CATEGORIES}
+secrets: &secrets
+  PG_CONNECTION_STR: ${PG_CONNECTION_STR}
+  ZOO_ADMIN_PASS: ${ZOO_ADMIN_PASS}
+  TOKEN: ${TOKEN}
+  STAFF_CLIENT_ID: ${STAFF_CLIENT_ID}
+  STAFF_CLIENT_SECRET: ${STAFF_CLIENT_SECRET}
+
+applications:
+  redis:
+    image: docker-proxy.kontur.host/redis
+    replicas: 1
+    imagePullSecrets:
+      - secretName: nexuscreds
+        registryName: registry.kontur.host
+        registryUser: ${DOCKER_REGISTRY_USER}
+        registryPassword: ${DOCKER_REGISTRY_PASSWORD}
+    configs: *configs
+    ports:
+      - port: 6379
+    service:
+      enabled: true
+      type: NodePort
+      externalTrafficPolicy: Cluster
+      ports:
+        - port: 6379
+    resources:
+      limits:
+        cpu: 300m
+        memory: 256Mi
+      requests:
+        cpu: 300m
+        memory: 256Mi
+  scheduler:
+    image: $MARKET_DOCKER_REGISTRY_PUBLIC/cashbox_zoo_scheduler:${IMAGE_VERSION}
+    replicas: 1
+    imagePullSecrets:
+      - secretName: nexuscreds
+        registryName: registry.kontur.host
+        registryUser: ${DOCKER_REGISTRY_USER}
+        registryPassword: ${DOCKER_REGISTRY_PASSWORD}
+    configs: *configs
+    secrets: *secrets
+    resources:
+      limits:
+        cpu: 300m
+        memory: 256Mi
+      requests:
+        cpu: 300m
+        memory: 256Mi
+  server:
+    image: $MARKET_DOCKER_REGISTRY_PUBLIC/cashbox_zoo:${IMAGE_VERSION}
+    replicas: 1
+    imagePullSecrets:
+      - secretName: nexuscreds
+        registryName: registry.kontur.host
+        registryUser: ${DOCKER_REGISTRY_USER}
+        registryPassword: ${DOCKER_REGISTRY_PASSWORD}
+    configs: *configs
+    secrets: *secrets
+    resources:
+      limits:
+        cpu: 300m
+        memory: 256Mi
+      requests:
+        cpu: 300m
+        memory: 256Mi
+
+
+
+
+
+
+

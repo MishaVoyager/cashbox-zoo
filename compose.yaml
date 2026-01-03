@@ -1,0 +1,85 @@
+x-redis: &redis
+  REDIS_PORT: 6379
+  REDIS_DATABASES: 11
+  REDIS_HOST: redis
+x-common: &common
+  SECRETS_ADDRESS: "/run/secrets"
+  SECRETS_IN_FILE: "true"
+  POSTGRES_URL: "postgres:5867"
+  ADMINS: "mnoskov@skbkontur.ru pyrov@skbkontur.ru pesterev.ov@skbkontur.ru"
+  CATEGORIES: "Онлайн-касса, Фискальный регистратор, Терминал эквайринга, Весы, Принтер кухонный, Планшет, Сканер"
+  USE_REDIS: "false"
+
+services:
+  postgres:
+    image: postgres:13.3
+    environment:
+      - POSTGRES_DB=cashbox_zoo_db
+      - POSTGRES_USER=zoo_user
+      - POSTGRES_PASSWORD=401f9910-ab4b-4f0d-bc1c-9d0de97a89a7
+      - POSTGRES_HOST=localhost
+      - PGPORT=5867
+    volumes:
+      - zoo-data:/var/lib/postgresql/data
+    ports:
+      - "5867:5867"
+    expose:
+      - 5867
+    restart: unless-stopped
+    command: -p 5867
+  # redis:
+  #   image: redis
+  #   restart: always
+  #   volumes:
+  #     - ./redis_data:/data
+  #   ports:
+  #     - "6379:6379"
+  #   expose:
+  #     - 6379
+  #   environment:
+  #     <<: [ *redis ]
+#  server:
+#    image: vecheren/cashbox_zoo
+#    build: .
+#    ports:
+#      - 8080:8080
+#    environment:
+#      << : [*redis, *common]
+#    secrets:
+#      - zoo_admin_pass
+#      - token
+#      - staff_client_id
+#      - staff_client_secret
+#      - smtp_password
+#    depends_on:
+#      - postgres
+#      - redis
+#  scheduler:
+#    build:
+#     context: .
+#     dockerfile: Dockerfile_scheduler
+#    restart: always
+#    depends_on:
+#     - redis
+#     - server
+#    environment:
+#      << : [*redis, *common]
+#    secrets:
+#      - zoo_admin_pass
+#      - token
+#      - staff_client_id
+#      - staff_client_secret
+#      - smtp_password
+volumes:
+  zoo-data:
+secrets:
+  token:
+    file: src/secrets/token.txt
+  zoo_admin_pass:
+    file: src/secrets/zoo_admin_pass.txt
+  staff_client_id:
+    file: src/secrets/staff_client_id.txt
+  staff_client_secret: 
+    file: src/secrets/staff_client_secret.txt
+  smtp_password:
+    file: src/secrets/smtp_password.txt

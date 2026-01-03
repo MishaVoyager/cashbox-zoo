@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config
+data:
+  USE_POLLING: "true"
+  SECRETS_IN_FILE: "false"
+  ZOO_HOST: "0.0.0.0"
+  ZOO_PORT: "8080"
+  ZOO_WEBHOOK_PATH: "https://cashbox-zoo-bot.onrender.com"
+  POSTGRES_URL: "postgres-service"

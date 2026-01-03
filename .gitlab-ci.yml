@@ -1,0 +1,73 @@
+include:
+  - project: idevops/ci-templates
+    file: all.yaml
+
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  IMAGE_VERSION: $CI_COMMIT_SHORT_SHA
+
+'Run unit tests':
+  image: docker-proxy.kontur.host/python:3.11.0-slim
+  stage: test
+  script:
+    - pip install -r requirements.txt
+    - pytest src/tests/unit
+  when: manual
+
+'Run integration tests':
+  image: docker-proxy.kontur.host/python:3.11.0-slim
+  stage: test
+  services:
+    - name: docker-proxy.kontur.host/postgres:13.9
+      alias: postgres
+  variables:
+    POSTGRES_DB: cashbox_zoo_db
+    POSTGRES_USER: zoo_user
+    POSTGRES_PASSWORD: 401f9910-ab4b-4f0d-bc1c-9d0de97a89a7
+    POSTGRES_HOST: postgres
+    PGPORT: "5867"
+    pg_connection_str: postgresql+asyncpg://zoo_user:401f9910-ab4b-4f0d-bc1c-9d0de97a89a7@localhost:5867/cashbox_zoo_db
+  before_script:
+    - apt-get update && apt-get install -y postgresql-client
+    - pip install -r requirements.txt
+  script:
+    - until pg_isready -h postgres -p 5867; do sleep 1; done
+    - alembic upgrade head
+    - pytest src/tests/integration
+  when: manual
+
+'Build bot image':
+  stage: build
+  extends: .docker_build_image
+  variables:
+    DOCKER_IMAGE_TAG: $IMAGE_VERSION
+    DOCKER_IMAGE_NAME: $MARKET_DOCKER_REGISTRY_PUBLIC/cashbox_zoo
+    DOCKER_DOCKERFILE: "Dockerfile"
+    DOCKER_PUSH_LATEST: "true"
+  needs: [ ]
+  when: manual
+
+'Build scheduler image':
+  stage: build
+  extends: .docker_build_image
+  variables:
+    DOCKER_IMAGE_TAG: $IMAGE_VERSION
+    DOCKER_IMAGE_NAME: $MARKET_DOCKER_REGISTRY_PUBLIC/cashbox_zoo_scheduler
+    DOCKER_DOCKERFILE: "Dockerfile_scheduler"
+    DOCKER_PUSH_LATEST: "true"
+  needs: [ ]
+  when: manual
+
+'Deploy to k8s via helm':
+  stage: deploy
+  extends: .kubernetes_helm
+  variables:
+    KUBERNETES_CLUSTER: STG
+    KUBERNETES_NAMESPACE: market-misc
+    KUBERNETES_HELM_APP_NAME: cshbx-zoo
+    KUBERNETES_HELM_VALUES_FILE: deploy/values.yaml
+  when: manual
